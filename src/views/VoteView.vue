@@ -36,6 +36,16 @@
       <div v-if="!pollData" class="animate-fade-up text-gray-400">
         <p>Loading poll...</p>
       </div>
+      <div v-else-if="pollData.status !== 'voting'" class="animate-fade-up">
+        <p class="text-xl text-yellow-400">
+          Voting for this poll is not currently active.
+        </p>
+      </div>
+      <div v-else-if="hasVoted" class="animate-fade-up">
+        <p class="mt-2 text-2xl font-semibold text-green-400">
+          Thank you for your vote!
+        </p>
+      </div>
       <div v-else class="animate-fade-left space-y-4">
         <button
           v-for="option in pollData.options"
@@ -71,30 +81,28 @@ import { ArrowPathIcon } from "@heroicons/vue/20/solid";
 const pollStore = usePollStore();
 const { pollData } = storeToRefs(pollStore);
 const route = useRoute();
-// 2. Get the router instance to handle navigation
 const router = useRouter();
 
+// 1. Re-introduce the hasVoted ref
+const hasVoted = ref(false);
 const isSubmitting = ref(false);
 const submittingOptionId = ref<string | null>(null);
 
 const pollId = route.params.id as string;
 const storageKey = `voted_poll_${pollId}`;
 
-// 3. Add a watch effect to redirect if the poll is closed
+// This watch still handles the case where the admin closes the poll while you're on the page
 watch(pollData, (newData) => {
   if (newData?.status === "closed") {
-    // If poll status is closed, redirect to results
     router.push({ name: "results", params: { id: pollId } });
   }
 });
 
 onMounted(() => {
-  // 4. If user has already voted on this device, redirect them immediately
+  // 2. onMounted now sets the 'hasVoted' flag instead of redirecting
   if (localStorage.getItem(storageKey)) {
-    router.push({ name: "results", params: { id: pollId } });
-    return; // Stop further execution
+    hasVoted.value = true;
   }
-  // Otherwise, bind to the poll data as normal
   pollStore.bindToPoll(pollId);
 });
 
@@ -108,17 +116,17 @@ async function handleVote(optionId: string) {
     await pollStore.castVote(optionId);
     localStorage.setItem(storageKey, "true");
 
-    // 5. After a successful vote, redirect to the results page
-    router.push({ name: "results", params: { id: pollId } });
+    // 3. Instead of redirecting, we now set the 'hasVoted' flag
+    hasVoted.value = true;
   } catch (error) {
     console.error(error);
     alert(
       "Sorry, your vote could not be cast. The poll may have been deleted or closed.",
     );
-    // If the vote fails, we stay on the page, so we must reset the submitting state
+  } finally {
+    // 4. The 'finally' block is needed again to reset the submitting state
     isSubmitting.value = false;
     submittingOptionId.value = null;
   }
-  // No finally block needed here, as a successful vote navigates away.
 }
 </script>

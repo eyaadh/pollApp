@@ -15,7 +15,7 @@
           y="-1"
           patternUnits="userSpaceOnUse"
         >
-          <path d="M.5 200V.5H200" fill="none" />
+          <path d="M.L5 200V.5H200" fill="none" />
         </pattern>
       </defs>
       <rect
@@ -187,19 +187,9 @@
             level="H"
           />
         </div>
-        <div class="mb-12">
-          <button
-            @click="
-              router.push({ name: 'results', params: { id: route.params.id } })
-            "
-            class="rounded-md bg-indigo-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-400"
-          >
-            View Live Results
-          </button>
-        </div>
 
         <section
-          class="rounded-lg border border-red-500/30 bg-red-500/5 p-6 shadow-xl"
+          class="mt-12 rounded-lg border border-red-500/30 bg-red-500/5 p-6 shadow-xl"
         >
           <h2 class="mb-4 text-xl font-semibold text-white">Close This Poll</h2>
           <p class="mb-4 text-sm text-gray-400">
@@ -224,26 +214,6 @@
             </button>
           </form>
         </section>
-      </div>
-
-      <div
-        v-else-if="pollData.status === 'closed'"
-        class="animate-fade-up text-center"
-      >
-        <h2 class="mb-4 text-3xl font-bold text-gray-400">Poll Closed</h2>
-        <p class="mb-6 text-gray-300">
-          This poll is no longer accepting votes.
-        </p>
-        <div>
-          <button
-            @click="
-              router.push({ name: 'results', params: { id: route.params.id } })
-            "
-            class="rounded-md bg-indigo-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-400"
-          >
-            View Final Results
-          </button>
-        </div>
       </div>
     </div>
 
@@ -300,6 +270,11 @@ watch(
   pollData,
   (newData) => {
     if (newData) {
+      if (newData.status === "closed") {
+        router.push({ name: "results", params: { id: route.params.id } });
+        return;
+      }
+
       editablePollName.value = newData.name;
       const newOptions = JSON.parse(JSON.stringify(newData.options));
       editableOptions.value.splice(
