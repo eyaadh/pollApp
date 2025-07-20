@@ -1,7 +1,7 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { useRouter } from "vue-router";
-import { useDocument, useFirestore } from "vuefire";
+import { useDocument, useFirestore, useCollection } from "vuefire";
 import {
   collection,
   doc,
@@ -10,9 +10,7 @@ import {
   runTransaction,
   type DocumentReference,
 } from "firebase/firestore";
-import { useCollection } from "vuefire"; // Import useCollection
 
-// Define the data structures for type safety
 export interface PollOption {
   id: string;
   text: string;
@@ -20,48 +18,78 @@ export interface PollOption {
 }
 
 export interface Poll {
+  name: string;
   options: PollOption[];
-  status: "configuring" | "voting";
+  status: "configuring" | "voting" | "closed";
   totalVotes: number;
+  closeCode: string; // Added a code to close the poll
 }
 
 export const usePollStore = defineStore("poll", () => {
-  // --- This is the key change ---
-  // Get the firestore instance provided by vuefire
   const db = useFirestore();
-
   const router = useRouter();
-
-  // --- STATE ---
   const pollRef = ref<DocumentReference<Poll> | null>(null);
   const pollData = useDocument<Poll>(pollRef);
-
-  // ... THE REST OF YOUR STORE LOGIC REMAINS EXACTLY THE SAME ...
-  // All the functions like createPoll, castVote, etc., will now
-  // use the correct `db` instance from useFirestore().
-
   const pollsCollection = collection(db, "polls");
-  const pollsList = useCollection(pollsCollection); // Binds to the entire collection
+  const pollsList = useCollection(pollsCollection);
 
-  // --- GETTERS ---
   const sortedOptions = computed(() => {
     if (!pollData.value) return [];
     return [...pollData.value.options].sort((a, b) => b.votes - a.votes);
   });
 
-  // --- ACTIONS ---
-  async function createPoll() {
+  // --- CHANGE 2: Update createPoll to generate a closeCode ---
+  async function createPoll(name: string) {
+    if (!name.trim()) {
+      alert("Please provide a name for the poll.");
+      return;
+    }
+
+    // Generate a simple 6-character alphanumeric code
+    const newCloseCode = Math.random()
+      .toString(36)
+      .substring(2, 8)
+      .toUpperCase();
+
     const newPollRef = doc(collection(db, "polls"));
     await setDoc(newPollRef, {
+      name: name.trim(),
       options: [],
       status: "configuring",
       totalVotes: 0,
+      closeCode: newCloseCode, // Save the code on creation
     });
     router.push({ name: "manage-poll", params: { id: newPollRef.id } });
   }
 
+  // --- CHANGE 3: Add a new action to close the poll using the code ---
+  async function closePollWithCode(providedCode: string): Promise<boolean> {
+    if (!pollRef.value || !pollData.value || !providedCode) {
+      alert("Invalid request.");
+      return false;
+    }
+    if (pollData.value.status !== "voting") {
+      alert("This poll is not currently active for voting.");
+      return false;
+    }
+    if (providedCode.trim().toUpperCase() === pollData.value.closeCode) {
+      await updateDoc(pollRef.value, { status: "closed" });
+      alert("Poll has been successfully closed.");
+      return true;
+    } else {
+      alert("Incorrect closing code.");
+      return false;
+    }
+  }
+
+  // --- No changes to the functions below this line ---
   function bindToPoll(id: string) {
     pollRef.value = doc(db, "polls", id) as DocumentReference<Poll>;
+  }
+
+  async function updatePollName(newName: string) {
+    if (!pollRef.value || !newName.trim()) return;
+    await updateDoc(pollRef.value, { name: newName.trim() });
   }
 
   async function addOption(text: string) {
@@ -107,15 +135,13 @@ export const usePollStore = defineStore("poll", () => {
   async function castVote(optionId: string) {
     if (!pollRef.value) return;
 
-    // --- THIS IS THE FIX ---
-    // Instead of using the 'db' variable from useFirestore(),
-    // we get the instance directly from the document reference.
     const firestoreInstance = pollRef.value.firestore;
-
-    // Now, run the transaction using that specific instance.
     await runTransaction(firestoreInstance, async (transaction) => {
       const pollDoc = await transaction.get(pollRef.value!);
-      if (!pollDoc.exists()) throw "Poll does not exist!";
+      // This check now correctly prevents votes on 'configuring' or 'closed' polls
+      if (!pollDoc.exists() || pollDoc.data().status !== "voting") {
+        throw "Poll is not active for voting.";
+      }
 
       const poll = pollDoc.data() as Poll;
       const newOptions = poll.options.map((o) =>
@@ -138,9 +164,11 @@ export const usePollStore = defineStore("poll", () => {
     bindToPoll,
     addOption,
     deleteOption,
+    updatePollName,
     updateOptionText,
     updateOptionsOrder,
     startVoting,
+    closePollWithCode, // Expose the new action
     castVote,
   };
 });

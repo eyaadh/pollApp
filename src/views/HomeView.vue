@@ -59,9 +59,11 @@
     </div>
 
     <div
-      class="mx-auto max-w-7xl px-6 pt-10 pb-24 sm:pb-32 lg:flex lg:px-8 lg:py-40"
+      class="mx-auto max-w-7xl px-6 pt-10 pb-24 sm:pb-32 lg:flex lg:h-screen lg:items-center lg:px-8 lg:py-0"
     >
-      <div class="mx-auto max-w-2xl shrink-0 lg:mx-0 lg:pt-8">
+      <div
+        class="mx-auto flex h-full max-h-full max-w-2xl shrink-0 flex-col overflow-y-auto pr-4 pb-10 pl-2 lg:mx-0 lg:pt-8"
+      >
         <h1
           class="animate-fade-down mt-10 text-5xl font-semibold tracking-tight text-pretty text-white sm:text-7xl"
         >
@@ -70,23 +72,37 @@
         <p
           class="animate-fade-right mt-8 text-lg font-medium text-pretty text-gray-400 sm:text-xl/8"
         >
-          Create and share real-time polls with anyone, anywhere. No accounts,
-          no hassle. Just instant results.
+          Give your poll a name to get started. Create and share with anyone,
+          anywhere.
         </p>
-        <div class="animate-fade-up mt-10 flex items-center gap-x-6">
+
+        <form
+          @submit.prevent="handleCreatePoll"
+          class="animate-fade-up mt-10 flex items-center gap-x-4"
+        >
+          <input
+            v-model="newPollName"
+            type="text"
+            required
+            placeholder="e.g., Team Lunch Options"
+            class="flex-grow rounded-md border-0 bg-white/5 px-3 py-2.5 text-white shadow-sm ring-1 ring-white/10 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 focus:ring-inset sm:text-sm sm:leading-6"
+          />
           <button
-            @click="pollStore.createPoll"
+            type="submit"
             class="rounded-md bg-indigo-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
           >
-            Create a New Poll
+            Create Poll
           </button>
-        </div>
+        </form>
 
         <div class="animate-fade-up mt-16 w-full">
           <h2 class="text-xl font-bold tracking-tight text-white sm:text-2xl">
             Or manage an existing poll
           </h2>
-          <div v-if="pollsList.length > 0" class="mt-6 space-y-3">
+          <div v-if="isLoading" class="mt-6 text-left text-gray-500">
+            <p>Loading existing polls...</p>
+          </div>
+          <div v-else-if="pollsList.length > 0" class="mt-6 space-y-3">
             <RouterLink
               v-for="poll in pollsList"
               :key="poll.id"
@@ -95,10 +111,7 @@
             >
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-white">
-                    Poll ID:
-                    <span class="font-mono text-gray-400">{{ poll.id }}</span>
-                  </p>
+                  <p class="font-semibold text-white">{{ poll.name }}</p>
                   <p class="text-xs text-gray-400">
                     {{ poll.options.length }} options
                   </p>
@@ -109,6 +122,8 @@
                       poll.status === 'configuring',
                     'bg-green-400/10 text-green-400 ring-green-400/20':
                       poll.status === 'voting',
+                    'bg-gray-400/10 text-gray-400 ring-gray-400/20':
+                      poll.status === 'closed',
                   }"
                   class="rounded-full px-3 py-1 text-xs font-medium capitalize ring-1 ring-inset"
                 >
@@ -124,9 +139,11 @@
       </div>
 
       <div
-        class="mx-auto mt-16 flex h-[450px] max-w-2xl sm:mt-24 lg:mt-0 lg:mr-0 lg:ml-10 lg:max-w-none lg:flex-none xl:ml-32"
+        class="mx-auto mt-16 flex max-w-2xl sm:mt-24 lg:mt-0 lg:mr-0 lg:ml-10 lg:max-w-none lg:flex-none xl:ml-32"
       >
-        <div class="max-w-3xl flex-none sm:max-w-5xl lg:max-w-none">
+        <div
+          class="h-[50px] max-w-md flex-none md:max-w-3xl lg:h-auto lg:max-w-none"
+        >
           <img
             src="@/assets/vote.jpg"
             alt="App screenshot"
@@ -142,7 +159,28 @@
 import { usePollStore } from "@/stores/poll";
 import { storeToRefs } from "pinia";
 import { RouterLink } from "vue-router";
+import { ref, watch } from "vue";
 
 const pollStore = usePollStore();
 const { pollsList } = storeToRefs(pollStore);
+
+// Added state for the poll name input and loading status
+const newPollName = ref("");
+const isLoading = ref(true);
+
+watch(
+  pollsList,
+  (newList) => {
+    if (newList) {
+      isLoading.value = false;
+    }
+  },
+  { immediate: true },
+);
+
+// New function to handle the form submission
+function handleCreatePoll() {
+  pollStore.createPoll(newPollName.value);
+  newPollName.value = ""; // Clear the input after creation
+}
 </script>

@@ -29,14 +29,24 @@
     <div class="mx-auto max-w-7xl">
       <header class="mb-10 text-center">
         <h1 class="text-4xl font-bold text-white sm:text-5xl">
-          Live Poll Results
+          {{ pollData?.name || "Live Poll Results" }}
         </h1>
         <p class="mt-4 text-xl text-gray-400">
           Total Votes:
           <span class="font-bold text-white">{{ totalVotes }}</span>
         </p>
 
-        <div class="mt-6 flex flex-col md:hidden">
+        <p
+          v-if="pollData?.status === 'closed'"
+          class="mt-4 rounded-md bg-red-500/10 px-4 py-2 text-lg font-semibold text-red-400"
+        >
+          This poll is now closed.
+        </p>
+
+        <div
+          v-if="pollData?.status !== 'closed'"
+          class="mt-6 flex flex-col items-center md:hidden"
+        >
           <button
             @click="showQrCode = !showQrCode"
             class="rounded-md bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-white/20"
@@ -45,11 +55,11 @@
           </button>
           <div
             v-if="showQrCode"
-            class="mt-6 w-full rounded-lg bg-white p-4 shadow-2xl"
+            class="mt-6 w-full max-w-xs rounded-lg bg-white p-4 shadow-2xl"
           >
             <QrcodeVue
               :value="`${siteUrl}/poll/${route.params.id}/vote`"
-              :size="150"
+              :size="200"
               level="H"
             />
           </div>
@@ -57,8 +67,13 @@
       </header>
 
       <div class="grid grid-cols-1 items-start gap-x-12 md:grid-cols-3">
-        <div class="animate-fade-right hidden md:col-span-1 md:block">
-          <div class="sticky top-8 rounded-lg border p-6 text-center">
+        <div
+          v-if="pollData?.status !== 'closed'"
+          class="animate-fade-right hidden md:col-span-1 md:block"
+        >
+          <div
+            class="sticky top-8 rounded-lg border border-white/10 bg-white/5 p-6 text-center shadow-xl"
+          >
             <h2 class="text-2xl font-semibold text-white">Scan to Vote</h2>
             <p class="mt-2 mb-6 text-sm text-gray-400">
               Point your camera at the code below to cast your vote.
@@ -73,7 +88,12 @@
           </div>
         </div>
 
-        <div class="col-span-1 md:col-span-2">
+        <div
+          :class="[
+            'col-span-1',
+            pollData?.status === 'closed' ? 'md:col-span-3' : 'md:col-span-2',
+          ]"
+        >
           <div v-if="!pollData" class="text-center text-gray-400">
             <p>Loading results...</p>
           </div>

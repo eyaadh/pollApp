@@ -29,7 +29,7 @@
     <div class="mx-auto max-w-3xl">
       <header class="animate-fade-down mb-10 text-center">
         <h1 class="text-4xl font-bold text-white sm:text-5xl">
-          Manage Your Poll
+          {{ pollData?.name || "Manage Your Poll" }}
         </h1>
         <p v-if="pollData" class="mt-4 font-mono text-sm text-gray-500">
           Poll ID: {{ route.params.id }}
@@ -50,8 +50,64 @@
         <section
           class="mb-8 rounded-lg border border-white/10 bg-white/5 p-6 shadow-xl"
         >
+          <h2 class="mb-4 text-2xl font-semibold text-white">Poll Details</h2>
+          <div class="mb-6">
+            <label
+              for="poll-name"
+              class="block text-sm leading-6 font-medium text-gray-300"
+              >Poll Name</label
+            >
+            <div class="mt-2">
+              <input
+                v-model="editablePollName"
+                id="poll-name"
+                type="text"
+                class="block w-full rounded-md border-0 bg-white/5 px-3 py-1.5 text-white shadow-sm ring-1 ring-white/10 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 focus:ring-inset sm:text-sm sm:leading-6"
+              />
+            </div>
+          </div>
+          <div>
+            <label
+              for="close-code"
+              class="block text-sm leading-6 font-medium text-gray-300"
+              >Closing Code</label
+            >
+            <p class="mt-1 text-xs text-gray-500">
+              Save this code. You'll need it to close the poll later.
+            </p>
+            <div class="mt-2 flex gap-2">
+              <input
+                :type="closeCodeInputType"
+                :value="pollData.closeCode"
+                readonly
+                class="block w-full rounded-md border-0 bg-black/20 px-3 py-1.5 font-mono text-gray-300 shadow-sm ring-1 ring-white/10 ring-inset"
+              />
+              <button
+                @click="toggleCloseCodeVisibility"
+                class="rounded-md p-2 text-sm font-semibold text-gray-300 ring-1 ring-white/20 ring-inset hover:bg-white/10"
+              >
+                <EyeIcon
+                  v-if="closeCodeInputType === 'password'"
+                  class="h-5 w-5"
+                />
+                <EyeSlashIcon v-else class="h-5 w-5" />
+              </button>
+              <button
+                @click="copy(pollData.closeCode)"
+                class="rounded-md bg-indigo-500 p-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400"
+              >
+                <ClipboardDocumentCheckIcon v-if="copied" class="h-5 w-5" />
+                <ClipboardDocumentIcon v-else class="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="mb-8 rounded-lg border border-white/10 bg-white/5 p-6 shadow-xl"
+        >
           <h2 class="mb-4 text-2xl font-semibold text-white">
-            1. Add & Arrange Options
+            Add & Arrange Options
           </h2>
           <form @submit.prevent="handleAddOption" class="mb-4 flex gap-3">
             <input
@@ -105,7 +161,7 @@
             :disabled="pollData.options.length < 2"
             class="rounded-md bg-green-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-green-400 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-green-500 disabled:cursor-not-allowed disabled:bg-gray-600"
           >
-            2. Finalize & Start Voting
+            Finalize & Start Voting
           </button>
           <p
             v-if="pollData.options.length < 2"
@@ -131,14 +187,61 @@
             level="H"
           />
         </div>
+        <div class="mb-12">
+          <button
+            @click="
+              router.push({ name: 'results', params: { id: route.params.id } })
+            "
+            class="rounded-md bg-indigo-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-400"
+          >
+            View Live Results
+          </button>
+        </div>
+
+        <section
+          class="rounded-lg border border-red-500/30 bg-red-500/5 p-6 shadow-xl"
+        >
+          <h2 class="mb-4 text-xl font-semibold text-white">Close This Poll</h2>
+          <p class="mb-4 text-sm text-gray-400">
+            Once closed, no more votes can be cast. Enter the closing code to
+            proceed.
+          </p>
+          <form
+            @submit.prevent="handleClosePoll"
+            class="flex justify-center gap-3"
+          >
+            <input
+              v-model="enteredCloseCode"
+              type="text"
+              placeholder="Enter code..."
+              class="rounded-md border-white/10 bg-white/5 px-3 py-2 text-white shadow-sm ring-1 ring-white/10 ring-inset focus:ring-2 focus:ring-red-500 focus:ring-inset"
+            />
+            <button
+              type="submit"
+              class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500"
+            >
+              Close Poll
+            </button>
+          </form>
+        </section>
+      </div>
+
+      <div
+        v-else-if="pollData.status === 'closed'"
+        class="animate-fade-up text-center"
+      >
+        <h2 class="mb-4 text-3xl font-bold text-gray-400">Poll Closed</h2>
+        <p class="mb-6 text-gray-300">
+          This poll is no longer accepting votes.
+        </p>
         <div>
           <button
             @click="
               router.push({ name: 'results', params: { id: route.params.id } })
             "
-            class="rounded-md bg-indigo-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+            class="rounded-md bg-indigo-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-400"
           >
-            View Live Results
+            View Final Results
           </button>
         </div>
       </div>
@@ -154,26 +257,36 @@
 </template>
 
 <script setup lang="ts">
-// Make sure to import nextTick from 'vue'
 import { ref, watch, onMounted, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { usePollStore, type PollOption } from "@/stores/poll";
 import QrcodeVue from "qrcode.vue";
 import { useSortable } from "@vueuse/integrations/useSortable";
+import { watchDebounced, useClipboard } from "@vueuse/core";
 import EditOptionDialog from "@/components/EditOptionDialog.vue";
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  ClipboardDocumentIcon,
+  ClipboardDocumentCheckIcon,
+} from "@heroicons/vue/24/outline";
 
 const pollStore = usePollStore();
 const { pollData } = storeToRefs(pollStore);
 const route = useRoute();
 const router = useRouter();
 
+const editablePollName = ref("");
+const closeCodeInputType = ref<"password" | "text">("password");
+const enteredCloseCode = ref("");
+const { copy, copied } = useClipboard();
+
 const newOptionText = ref("");
 const editableOptions = ref<PollOption[]>([]);
 const siteUrl = window.location.origin;
 
 const listEl = ref<HTMLElement | null>(null);
-// A flag to ensure we only initialize the sortable logic once
 const isSortableInitialized = ref(false);
 
 const isEditDialogOpen = ref(false);
@@ -187,7 +300,7 @@ watch(
   pollData,
   (newData) => {
     if (newData) {
-      // First, update the local array's content. The splice method is still correct.
+      editablePollName.value = newData.name;
       const newOptions = JSON.parse(JSON.stringify(newData.options));
       editableOptions.value.splice(
         0,
@@ -195,21 +308,15 @@ watch(
         ...newOptions,
       );
 
-      // --- THIS IS THE NEW LOGIC ---
-      // We only initialize useSortable ONE TIME, after the data has loaded.
       if (!isSortableInitialized.value && newOptions.length > 0) {
-        // nextTick waits for Vue to update the DOM with the v-for list
         nextTick(() => {
           if (listEl.value) {
-            // Ensure the element is mounted
-            // Now we initialize useSortable, confident that the data and DOM are ready
             useSortable(listEl, editableOptions, {
               animation: 150,
               onUpdate: () => {
                 pollStore.updateOptionsOrder(editableOptions.value);
               },
             });
-            // Set the flag so this block never runs again
             isSortableInitialized.value = true;
           }
         });
@@ -219,20 +326,40 @@ watch(
   { deep: true, immediate: true },
 );
 
+watchDebounced(
+  editablePollName,
+  (newName) => {
+    if (newName && newName !== pollData.value?.name) {
+      pollStore.updatePollName(newName);
+    }
+  },
+  { debounce: 500, maxWait: 2000 },
+);
+
+function toggleCloseCodeVisibility() {
+  closeCodeInputType.value =
+    closeCodeInputType.value === "password" ? "text" : "password";
+}
+
+async function handleClosePoll() {
+  await pollStore.closePollWithCode(enteredCloseCode.value);
+  enteredCloseCode.value = "";
+}
+
 async function handleAddOption() {
   await pollStore.addOption(newOptionText.value);
   newOptionText.value = "";
 }
 
 function startEditing(option: PollOption) {
-  optionToEdit.value = option; // Store the option we want to edit
-  isEditDialogOpen.value = true; // Open the dialog
+  optionToEdit.value = option;
+  isEditDialogOpen.value = true;
 }
 
 function handleSave(newText: string) {
   if (optionToEdit.value) {
     pollStore.updateOptionText(optionToEdit.value.id, newText);
   }
-  isEditDialogOpen.value = false; // Close the dialog
+  isEditDialogOpen.value = false;
 }
 </script>
