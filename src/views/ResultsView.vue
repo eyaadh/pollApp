@@ -26,8 +26,8 @@
       />
     </svg>
 
-    <div class="mx-auto max-w-4xl">
-      <header class="animate-fade-down mb-10 text-center">
+    <div class="mx-auto max-w-7xl">
+      <header class="mb-10 text-center">
         <h1 class="text-4xl font-bold text-white sm:text-5xl">
           Live Poll Results
         </h1>
@@ -35,42 +35,78 @@
           Total Votes:
           <span class="font-bold text-white">{{ totalVotes }}</span>
         </p>
+
+        <div class="mt-6 flex flex-col md:hidden">
+          <button
+            @click="showQrCode = !showQrCode"
+            class="rounded-md bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-white/20"
+          >
+            {{ showQrCode ? "Hide" : "Show" }} Voting QR Code
+          </button>
+          <div
+            v-if="showQrCode"
+            class="mt-6 w-full rounded-lg bg-white p-4 shadow-2xl"
+          >
+            <QrcodeVue
+              :value="`${siteUrl}/poll/${route.params.id}/vote`"
+              :size="150"
+              level="H"
+            />
+          </div>
+        </div>
       </header>
 
-      <div
-        v-if="!pollData"
-        class="animate-fade-right text-center text-gray-400"
-      >
-        <p>Loading results...</p>
-      </div>
-      <div v-else class="animate-fade-right space-y-5">
-        <div
-          v-for="option in sortedOptions"
-          :key="option.id"
-          class="rounded-lg border border-white/10 bg-white/5 p-4 shadow-xl"
-        >
-          <div class="mb-2 flex items-center justify-between">
-            <span class="text-xl font-semibold text-gray-200">{{
-              option.text
-            }}</span>
-            <span class="text-lg font-bold text-indigo-400"
-              >{{ option.votes }} votes</span
-            >
+      <div class="grid grid-cols-1 items-start gap-x-12 md:grid-cols-3">
+        <div class="animate-fade-right hidden md:col-span-1 md:block">
+          <div class="sticky top-8 rounded-lg border p-6 text-center">
+            <h2 class="text-2xl font-semibold text-white">Scan to Vote</h2>
+            <p class="mt-2 mb-6 text-sm text-gray-400">
+              Point your camera at the code below to cast your vote.
+            </p>
+            <div class="inline-block rounded-lg bg-white p-4">
+              <QrcodeVue
+                :value="`${siteUrl}/poll/${route.params.id}/vote`"
+                :size="200"
+                level="H"
+              />
+            </div>
           </div>
-          <div class="h-8 w-full rounded-full bg-black/20">
+        </div>
+
+        <div class="col-span-1 md:col-span-2">
+          <div v-if="!pollData" class="text-center text-gray-400">
+            <p>Loading results...</p>
+          </div>
+          <div v-else class="space-y-5">
             <div
-              :class="[
-                'flex h-8 items-center justify-end rounded-full bg-indigo-500 text-white transition-all duration-500 ease-out',
-                { 'pr-2': getVotePercentage(option.votes) > 0 },
-              ]"
-              :style="{ width: getVotePercentage(option.votes) + '%' }"
+              v-for="option in sortedOptions"
+              :key="option.id"
+              class="rounded-lg border border-white/10 bg-white/5 p-4 shadow-xl"
             >
-              <span
-                v-if="getVotePercentage(option.votes) > 0"
-                class="text-sm font-semibold whitespace-nowrap"
-              >
-                {{ getVotePercentage(option.votes).toFixed(0) }}%
-              </span>
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-xl font-semibold text-gray-200">{{
+                  option.text
+                }}</span>
+                <span class="text-lg font-bold text-indigo-400"
+                  >{{ option.votes }} votes</span
+                >
+              </div>
+              <div class="h-8 w-full rounded-full bg-black/20">
+                <div
+                  :class="[
+                    'flex h-8 items-center justify-end rounded-full bg-indigo-500 text-white transition-all duration-500 ease-out',
+                    { 'pr-2': getVotePercentage(option.votes) > 0 },
+                  ]"
+                  :style="{ width: getVotePercentage(option.votes) + '%' }"
+                >
+                  <span
+                    v-if="getVotePercentage(option.votes) > 0"
+                    class="text-sm font-semibold whitespace-nowrap"
+                  >
+                    {{ getVotePercentage(option.votes).toFixed(0) }}%
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -80,14 +116,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { usePollStore } from "@/stores/poll";
+import QrcodeVue from "qrcode.vue";
 
 const pollStore = usePollStore();
 const { pollData, sortedOptions } = storeToRefs(pollStore);
 const route = useRoute();
+
+// This is now only used for small screens
+const showQrCode = ref(false);
+const siteUrl = window.location.origin;
 
 onMounted(() => {
   pollStore.bindToPoll(route.params.id as string);

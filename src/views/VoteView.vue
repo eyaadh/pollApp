@@ -41,7 +41,12 @@
           Voting for this poll has not started yet.
         </p>
       </div>
-      <div v-else-if="!hasVoted" class="animate-fade-left space-y-4">
+      <div v-else-if="hasVoted">
+        <p class="mt-2 text-2xl font-semibold text-green-400">
+          Thank you for your vote!
+        </p>
+      </div>
+      <div v-else class="animate-fade-left space-y-4">
         <button
           v-for="option in pollData.options"
           :key="option.id"
@@ -50,11 +55,6 @@
         >
           {{ option.text }}
         </button>
-      </div>
-      <div v-else>
-        <p class="mt-2 text-2xl font-semibold text-green-400">
-          Thank you for your vote!
-        </p>
       </div>
     </div>
   </div>
@@ -71,13 +71,31 @@ const { pollData } = storeToRefs(pollStore);
 const route = useRoute();
 const hasVoted = ref(false);
 
+// 1. Get the unique poll ID from the route
+const pollId = route.params.id as string;
+// 2. Create a unique key for this specific poll to use in localStorage
+const storageKey = `voted_poll_${pollId}`;
+
 onMounted(() => {
-  pollStore.bindToPoll(route.params.id as string);
+  // 3. When the component loads, check if a "receipt" exists in storage
+  if (localStorage.getItem(storageKey)) {
+    // If it exists, immediately mark that this device has voted
+    hasVoted.value = true;
+  }
+
+  // Bind to the poll data from Firestore
+  pollStore.bindToPoll(pollId);
 });
 
 async function handleVote(optionId: string) {
   try {
+    // This part remains the same: we cast the vote in Firestore
     await pollStore.castVote(optionId);
+
+    // 4. On a successful vote, set the "receipt" in localStorage
+    localStorage.setItem(storageKey, "true");
+
+    // Mark that this device has voted for the current session
     hasVoted.value = true;
   } catch (error) {
     console.error(error);
