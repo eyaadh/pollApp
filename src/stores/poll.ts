@@ -9,6 +9,7 @@ import {
   updateDoc,
   runTransaction,
   type DocumentReference,
+  serverTimestamp,
 } from "firebase/firestore";
 
 export interface PollOption {
@@ -22,7 +23,9 @@ export interface Poll {
   options: PollOption[];
   status: "configuring" | "voting" | "closed";
   totalVotes: number;
-  closeCode: string; // Added a code to close the poll
+  closeCode: string;
+  createdAt: any; // Field for creation timestamp
+  closedAt: any | null; // Field for closing timestamp
 }
 
 export const usePollStore = defineStore("poll", () => {
@@ -57,7 +60,9 @@ export const usePollStore = defineStore("poll", () => {
       options: [],
       status: "configuring",
       totalVotes: 0,
-      closeCode: newCloseCode, // Save the code on creation
+      closeCode: newCloseCode,
+      createdAt: serverTimestamp(), // <-- Add this line
+      closedAt: null,
     });
     router.push({ name: "manage-poll", params: { id: newPollRef.id } });
   }
@@ -73,7 +78,10 @@ export const usePollStore = defineStore("poll", () => {
       return false;
     }
     if (providedCode.trim().toUpperCase() === pollData.value.closeCode) {
-      await updateDoc(pollRef.value, { status: "closed" });
+      await updateDoc(pollRef.value, {
+        status: "closed",
+        closedAt: serverTimestamp(), // <-- Add this line
+      });
       alert("Poll has been successfully closed.");
       return true;
     } else {
