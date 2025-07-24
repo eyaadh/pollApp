@@ -18,14 +18,17 @@ export interface PollOption {
   votes: number;
 }
 
+export type PollVisibility = "open" | "private";
+
 export interface Poll {
   name: string;
   options: PollOption[];
   status: "configuring" | "voting" | "closed";
+  visibility: PollVisibility;
   totalVotes: number;
   closeCode: string;
-  createdAt: any; // Field for creation timestamp
-  closedAt: any | null; // Field for closing timestamp
+  createdAt: any;
+  closedAt: any | null;
 }
 
 export const usePollStore = defineStore("poll", () => {
@@ -41,14 +44,12 @@ export const usePollStore = defineStore("poll", () => {
     return [...pollData.value.options].sort((a, b) => b.votes - a.votes);
   });
 
-  // --- CHANGE 2: Update createPoll to generate a closeCode ---
   async function createPoll(name: string) {
     if (!name.trim()) {
       alert("Please provide a name for the poll.");
       return;
     }
 
-    // Generate a simple 6-character alphanumeric code
     const newCloseCode = Math.random()
       .toString(36)
       .substring(2, 8)
@@ -57,17 +58,18 @@ export const usePollStore = defineStore("poll", () => {
     const newPollRef = doc(collection(db, "polls"));
     await setDoc(newPollRef, {
       name: name.trim(),
+      visibility: "private", // Default to private for security
       options: [],
       status: "configuring",
       totalVotes: 0,
       closeCode: newCloseCode,
-      createdAt: serverTimestamp(), // <-- Add this line
+      createdAt: serverTimestamp(),
       closedAt: null,
     });
+
     router.push({ name: "manage-poll", params: { id: newPollRef.id } });
   }
 
-  // --- CHANGE 3: Add a new action to close the poll using the code ---
   async function closePollWithCode(providedCode: string): Promise<boolean> {
     if (!pollRef.value || !pollData.value || !providedCode) {
       alert("Invalid request.");
@@ -90,7 +92,6 @@ export const usePollStore = defineStore("poll", () => {
     }
   }
 
-  // --- No changes to the functions below this line ---
   function bindToPoll(id: string) {
     pollRef.value = doc(db, "polls", id) as DocumentReference<Poll>;
   }
@@ -98,6 +99,11 @@ export const usePollStore = defineStore("poll", () => {
   async function updatePollName(newName: string) {
     if (!pollRef.value || !newName.trim()) return;
     await updateDoc(pollRef.value, { name: newName.trim() });
+  }
+
+  async function updatePollVisibility(visibility: PollVisibility) {
+    if (!pollRef.value) return;
+    await updateDoc(pollRef.value, { visibility });
   }
 
   async function addOption(text: string) {
@@ -173,10 +179,11 @@ export const usePollStore = defineStore("poll", () => {
     addOption,
     deleteOption,
     updatePollName,
+    updatePollVisibility,
     updateOptionText,
     updateOptionsOrder,
     startVoting,
-    closePollWithCode, // Expose the new action
+    closePollWithCode,
     castVote,
   };
 });

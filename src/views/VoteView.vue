@@ -83,7 +83,6 @@ const { pollData } = storeToRefs(pollStore);
 const route = useRoute();
 const router = useRouter();
 
-// 1. Re-introduce the hasVoted ref
 const hasVoted = ref(false);
 const isSubmitting = ref(false);
 const submittingOptionId = ref<string | null>(null);
@@ -99,7 +98,6 @@ watch(pollData, (newData) => {
 });
 
 onMounted(() => {
-  // 2. onMounted now sets the 'hasVoted' flag instead of redirecting
   if (localStorage.getItem(storageKey)) {
     hasVoted.value = true;
   }
@@ -116,7 +114,6 @@ async function handleVote(optionId: string) {
     await pollStore.castVote(optionId);
     localStorage.setItem(storageKey, "true");
 
-    // 3. Instead of redirecting, we now set the 'hasVoted' flag
     hasVoted.value = true;
   } catch (error) {
     console.error(error);
@@ -124,7 +121,6 @@ async function handleVote(optionId: string) {
       "Sorry, your vote could not be cast. The poll may have been deleted or closed.",
     );
   } finally {
-    // 4. The 'finally' block is needed again to reset the submitting state
     isSubmitting.value = false;
     submittingOptionId.value = null;
   }

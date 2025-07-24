@@ -32,17 +32,14 @@
           {{ pollData?.name || "Poll Results" }}
         </h1>
         <p class="mt-4 text-xl text-gray-400">
-          Final Tally - Total Votes:
+          Total Votes:
           <span class="font-bold text-white">{{ totalVotes }}</span>
         </p>
       </header>
 
       <div>
-        <div
-          v-if="!pollData || pollData.status !== 'closed'"
-          class="text-center text-gray-400"
-        >
-          <p>Loading final results...</p>
+        <div v-if="!pollData" class="text-center text-gray-400">
+          <p>Loading results...</p>
         </div>
         <div v-else class="space-y-5">
           <div
@@ -86,28 +83,31 @@ import { computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { usePollStore } from "@/stores/poll";
-// QrcodeVue is no longer needed
-// import QrcodeVue from "qrcode.vue";
 
 const pollStore = usePollStore();
 const { pollData, sortedOptions } = storeToRefs(pollStore);
 const route = useRoute();
-// Get router instance for navigation
 const router = useRouter();
-
-// The showQrCode and siteUrl refs are no longer needed
 
 onMounted(() => {
   pollStore.bindToPoll(route.params.id as string);
 });
 
-// Watch for changes in poll data to handle redirection
+// The script correctly handles all authorization and redirection logic
 watch(pollData, (newData) => {
-  // If the poll data loads and the status is NOT 'closed', redirect to the manage page
-  if (
-    newData &&
-    (newData.status === "configuring" || newData.status === "voting")
-  ) {
+  if (newData) {
+    if (newData.status === "closed") {
+      return;
+    }
+    if (newData.visibility === "open") {
+      return;
+    }
+    if (newData.status === "voting" && newData.visibility === "private") {
+      const codeFromQuery = (route.query.code as string) || "";
+      if (codeFromQuery.toUpperCase() === newData.closeCode) {
+        return;
+      }
+    }
     router.push({ name: "manage-poll", params: { id: route.params.id } });
   }
 });

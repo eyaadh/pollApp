@@ -51,6 +51,7 @@
           class="mb-8 rounded-lg border border-white/10 bg-white/5 p-6 shadow-xl"
         >
           <h2 class="mb-4 text-2xl font-semibold text-white">Poll Details</h2>
+
           <div class="mb-6">
             <label
               for="poll-name"
@@ -66,6 +67,41 @@
               />
             </div>
           </div>
+
+          <SwitchGroup as="div" class="mb-6 flex items-center justify-between">
+            <div>
+              <SwitchLabel
+                as="span"
+                class="text-sm leading-6 font-medium text-gray-300"
+                passive
+                >Results Visibility</SwitchLabel
+              >
+              <p class="mt-1 text-xs text-gray-500">
+                <span v-if="editableVisibility"
+                  >Anyone can view live results.</span
+                >
+                <span v-else
+                  >Results are private until the poll is closed.</span
+                >
+              </p>
+            </div>
+            <Switch
+              v-model="editableVisibility"
+              :class="[
+                editableVisibility ? 'bg-indigo-600' : 'bg-gray-700',
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 focus:ring-offset-gray-900 focus:outline-none',
+              ]"
+            >
+              <span
+                aria-hidden="true"
+                :class="[
+                  editableVisibility ? 'translate-x-5' : 'translate-x-0',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                ]"
+              />
+            </Switch>
+          </SwitchGroup>
+
           <div>
             <label
               for="close-code"
@@ -189,29 +225,46 @@
         </div>
 
         <section
-          class="mt-12 rounded-lg border border-red-500/30 bg-red-500/5 p-6 shadow-xl"
+          class="rounded-lg border border-white/10 bg-white/5 p-6 shadow-xl"
         >
-          <h2 class="mb-4 text-xl font-semibold text-white">Close This Poll</h2>
+          <h2 class="mb-4 text-xl font-semibold text-white">Poll Controls</h2>
+
           <p class="mb-4 text-sm text-gray-400">
-            Once closed, no more votes can be cast. Enter the closing code to
-            proceed.
+            Enter the closing code to enable poll controls.
+            <span v-if="pollData.visibility === 'private'">
+              For private polls, this also unlocks the 'View Results'
+              button.</span
+            >
           </p>
+
           <form
             @submit.prevent="handleClosePoll"
-            class="flex justify-center gap-3"
+            class="flex flex-col items-center gap-4"
           >
             <input
               v-model="enteredCloseCode"
               type="text"
-              placeholder="Enter code..."
-              class="rounded-md border-white/10 bg-white/5 px-3 py-2 text-white shadow-sm ring-1 ring-white/10 ring-inset focus:ring-2 focus:ring-red-500 focus:ring-inset"
+              placeholder="Enter closing code..."
+              class="w-full max-w-xs rounded-md border-white/10 bg-white/5 px-3 py-2 text-center text-white shadow-sm ring-1 ring-white/10 ring-inset focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
             />
-            <button
-              type="submit"
-              class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500"
-            >
-              Close Poll
-            </button>
+
+            <span class="isolate inline-flex rounded-md shadow-sm">
+              <button
+                type="button"
+                @click="handleViewResultsWithCode"
+                :disabled="isViewResultsDisabled"
+                class="relative inline-flex items-center rounded-l-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white ring-1 ring-indigo-600/30 ring-inset hover:bg-indigo-400 focus:z-10 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+              >
+                View Results
+              </button>
+              <button
+                type="submit"
+                :disabled="isClosePollDisabled"
+                class="relative -ml-px inline-flex items-center rounded-r-md bg-red-600 px-4 py-2 text-sm font-semibold text-white ring-1 ring-red-700/30 ring-inset hover:bg-red-500 focus:z-10 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+              >
+                Close Poll
+              </button>
+            </span>
           </form>
         </section>
       </div>
@@ -227,14 +280,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from "vue";
+import { ref, watch, onMounted, nextTick, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
-import { usePollStore, type PollOption } from "@/stores/poll";
+import {
+  usePollStore,
+  type PollOption,
+  type PollVisibility,
+} from "@/stores/poll";
 import QrcodeVue from "qrcode.vue";
 import { useSortable } from "@vueuse/integrations/useSortable";
 import { watchDebounced, useClipboard } from "@vueuse/core";
 import EditOptionDialog from "@/components/EditOptionDialog.vue";
+import { Switch, SwitchGroup, SwitchLabel } from "@headlessui/vue";
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -251,6 +309,34 @@ const editablePollName = ref("");
 const closeCodeInputType = ref<"password" | "text">("password");
 const enteredCloseCode = ref("");
 const { copy, copied } = useClipboard();
+
+const editableVisibility = computed({
+  get: () => pollData.value?.visibility === "open",
+  set: (value: boolean) => {
+    const newVisibility: PollVisibility = value ? "open" : "private";
+    if (pollData.value && newVisibility !== pollData.value.visibility) {
+      pollStore.updatePollVisibility(newVisibility);
+    }
+  },
+});
+
+const isViewResultsDisabled = computed(() => {
+  // If the poll is private, the button is disabled until the correct code is entered.
+  if (pollData.value?.visibility === "private") {
+    return (
+      enteredCloseCode.value.trim().toUpperCase() !== pollData.value.closeCode
+    );
+  }
+  // If the poll is open, the button is never disabled.
+  return false;
+});
+
+const isClosePollDisabled = computed(() => {
+  // Button is disabled until the correct code is entered.
+  return (
+    enteredCloseCode.value.trim().toUpperCase() !== pollData.value?.closeCode
+  );
+});
 
 const newOptionText = ref("");
 const editableOptions = ref<PollOption[]>([]);
@@ -310,6 +396,15 @@ watchDebounced(
   },
   { debounce: 500, maxWait: 2000 },
 );
+
+function handleViewResultsWithCode() {
+  router.push({
+    name: "results",
+    params: { id: route.params.id },
+    // We still pass the code for private polls as a backup check on the results page
+    query: { code: enteredCloseCode.value.trim() },
+  });
+}
 
 function toggleCloseCodeVisibility() {
   closeCodeInputType.value =
