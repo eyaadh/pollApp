@@ -76,6 +76,15 @@
           anywhere.
         </p>
 
+        <div class="mt-4">
+          <RouterLink
+            :to="{ name: 'help' }"
+            class="text-sm leading-6 font-semibold text-indigo-400 hover:text-indigo-300"
+          >
+            How does this work? <span aria-hidden="true">&rarr;</span>
+          </RouterLink>
+        </div>
+
         <form
           @submit.prevent="handleCreatePoll"
           class="animate-fade-up mt-10 flex items-center gap-x-4"
@@ -97,14 +106,15 @@
 
         <div class="animate-fade-up mt-16 w-full">
           <h2 class="text-xl font-bold tracking-tight text-white sm:text-2xl">
-            Or manage an existing poll
+            Or manage a listed poll
           </h2>
           <div v-if="isLoading" class="mt-6 text-left text-gray-500">
             <p>Loading existing polls...</p>
           </div>
-          <div v-else-if="pollsList.length > 0" class="mt-6 space-y-3">
+
+          <div v-else-if="listedPolls.length > 0" class="mt-6 space-y-3">
             <RouterLink
-              v-for="poll in pollsList"
+              v-for="poll in listedPolls"
               :key="poll.id"
               :to="{ name: 'manage-poll', params: { id: poll.id } }"
               class="block rounded-lg border border-white/10 bg-white/5 p-4 shadow-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-indigo-400"
@@ -133,7 +143,7 @@
             </RouterLink>
           </div>
           <div v-else class="mt-6 text-left text-gray-500">
-            <p>No polls found. Create one to get started!</p>
+            <p>No listed polls found. Create one to get started!</p>
           </div>
         </div>
       </div>
@@ -159,7 +169,7 @@
 import { usePollStore } from "@/stores/poll";
 import { storeToRefs } from "pinia";
 import { RouterLink } from "vue-router";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 const pollStore = usePollStore();
 const { pollsList } = storeToRefs(pollStore);
@@ -167,6 +177,13 @@ const { pollsList } = storeToRefs(pollStore);
 // Added state for the poll name input and loading status
 const newPollName = ref("");
 const isLoading = ref(true);
+
+const listedPolls = computed(() => {
+  if (Array.isArray(pollsList.value)) {
+    return pollsList.value.filter((poll) => poll.isListed);
+  }
+  return [];
+});
 
 watch(
   pollsList,
@@ -178,9 +195,8 @@ watch(
   { immediate: true },
 );
 
-// New function to handle the form submission
 function handleCreatePoll() {
   pollStore.createPoll(newPollName.value);
-  newPollName.value = ""; // Clear the input after creation
+  newPollName.value = "";
 }
 </script>

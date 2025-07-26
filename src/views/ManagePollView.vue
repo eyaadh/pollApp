@@ -102,6 +102,41 @@
             </Switch>
           </SwitchGroup>
 
+          <SwitchGroup as="div" class="mb-6 flex items-center justify-between">
+            <div>
+              <SwitchLabel
+                as="span"
+                class="text-sm leading-6 font-medium text-gray-300"
+                passive
+                >List on Homepage</SwitchLabel
+              >
+              <p class="mt-1 text-xs text-gray-500">
+                <span v-if="editableIsListed"
+                  >This poll will appear on the homepage.</span
+                >
+                <span v-else
+                  >This poll is unlisted and only accessible via direct
+                  link.</span
+                >
+              </p>
+            </div>
+            <Switch
+              v-model="editableIsListed"
+              :class="[
+                editableIsListed ? 'bg-indigo-600' : 'bg-gray-700',
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 focus:ring-offset-gray-900 focus:outline-none',
+              ]"
+            >
+              <span
+                aria-hidden="true"
+                :class="[
+                  editableIsListed ? 'translate-x-5' : 'translate-x-0',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                ]"
+              />
+            </Switch>
+          </SwitchGroup>
+
           <div>
             <label
               for="close-code"
@@ -268,6 +303,55 @@
           </form>
         </section>
       </div>
+
+      <div
+        v-else-if="pollData.status === 'closed'"
+        class="animate-fade-up text-center"
+      >
+        <h2 class="mb-4 text-3xl font-bold text-gray-400">Poll Closed</h2>
+        <p class="mb-8 text-gray-300">
+          This poll is no longer accepting votes. You can view the final results
+          or permanently delete the poll.
+        </p>
+        <div class="mb-12">
+          <button
+            @click="
+              router.push({ name: 'results', params: { id: route.params.id } })
+            "
+            class="rounded-md bg-indigo-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-400"
+          >
+            View Final Results
+          </button>
+        </div>
+
+        <!-- Danger Zone for Deleting the Poll -->
+        <section
+          class="rounded-lg border border-red-500/30 bg-red-500/5 p-6 shadow-xl"
+        >
+          <h2 class="mb-4 text-xl font-semibold text-white">Danger Zone</h2>
+          <p class="mb-4 text-sm text-gray-400">
+            Permanently delete this poll and all of its data. This action cannot
+            be undone. Enter the closing code to proceed.
+          </p>
+          <form
+            @submit.prevent="handleDeletePoll"
+            class="flex justify-center gap-3"
+          >
+            <input
+              v-model="enteredCloseCode"
+              type="text"
+              placeholder="Enter closing code to delete..."
+              class="rounded-md border-white/10 bg-white/5 px-3 py-2 text-white shadow-sm ring-1 ring-white/10 ring-inset focus:ring-2 focus:ring-red-500 focus:ring-inset"
+            />
+            <button
+              type="submit"
+              class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500"
+            >
+              Delete Poll Permanently
+            </button>
+          </form>
+        </section>
+      </div>
     </div>
 
     <EditOptionDialog
@@ -320,6 +404,15 @@ const editableVisibility = computed({
   },
 });
 
+const editableIsListed = computed({
+  get: () => pollData.value?.isListed ?? true, // Default to true if data is not yet loaded
+  set: (value: boolean) => {
+    if (pollData.value && value !== pollData.value.isListed) {
+      pollStore.updatePollListing(value);
+    }
+  },
+});
+
 const isViewResultsDisabled = computed(() => {
   // If the poll is private, the button is disabled until the correct code is entered.
   if (pollData.value?.visibility === "private") {
@@ -356,11 +449,7 @@ watch(
   pollData,
   (newData) => {
     if (newData) {
-      if (newData.status === "closed") {
-        router.push({ name: "results", params: { id: route.params.id } });
-        return;
-      }
-
+      // The redirect is gone. The template now handles the 'closed' state.
       editablePollName.value = newData.name;
       const newOptions = JSON.parse(JSON.stringify(newData.options));
       editableOptions.value.splice(
@@ -396,6 +485,11 @@ watchDebounced(
   },
   { debounce: 500, maxWait: 2000 },
 );
+
+async function handleDeletePoll() {
+  await pollStore.deletePollWithCode(enteredCloseCode.value);
+  enteredCloseCode.value = ""; // Clear input after attempting
+}
 
 function handleViewResultsWithCode() {
   router.push({

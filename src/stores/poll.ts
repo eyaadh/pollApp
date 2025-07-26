@@ -10,6 +10,7 @@ import {
   runTransaction,
   type DocumentReference,
   serverTimestamp,
+  deleteDoc,
 } from "firebase/firestore";
 
 export interface PollOption {
@@ -25,6 +26,7 @@ export interface Poll {
   options: PollOption[];
   status: "configuring" | "voting" | "closed";
   visibility: PollVisibility;
+  isListed: boolean;
   totalVotes: number;
   closeCode: string;
   createdAt: any;
@@ -58,7 +60,8 @@ export const usePollStore = defineStore("poll", () => {
     const newPollRef = doc(collection(db, "polls"));
     await setDoc(newPollRef, {
       name: name.trim(),
-      visibility: "private", // Default to private for security
+      visibility: "private", // Default to private
+      isListed: true, // Default to listed on the homepage
       options: [],
       status: "configuring",
       totalVotes: 0,
@@ -68,6 +71,35 @@ export const usePollStore = defineStore("poll", () => {
     });
 
     router.push({ name: "manage-poll", params: { id: newPollRef.id } });
+  }
+
+  async function deletePollWithCode(providedCode: string): Promise<boolean> {
+    if (!pollRef.value || !pollData.value || !providedCode) {
+      alert("Invalid request.");
+      return false;
+    }
+    // You can only delete a poll that is already closed
+    if (pollData.value.status !== "closed") {
+      alert("This poll must be closed before it can be deleted.");
+      return false;
+    }
+    if (providedCode.trim().toUpperCase() === pollData.value.closeCode) {
+      // Confirmation prompt before permanent deletion
+      if (
+        confirm(
+          "Are you sure you want to permanently delete this poll? This action cannot be undone.",
+        )
+      ) {
+        await deleteDoc(pollRef.value);
+        alert("Poll has been successfully deleted.");
+        router.push({ name: "home" }); // Navigate back to the homepage
+        return true;
+      }
+      return false; // User cancelled the deletion
+    } else {
+      alert("Incorrect closing code.");
+      return false;
+    }
   }
 
   async function closePollWithCode(providedCode: string): Promise<boolean> {
@@ -90,6 +122,11 @@ export const usePollStore = defineStore("poll", () => {
       alert("Incorrect closing code.");
       return false;
     }
+  }
+
+  async function updatePollListing(isListed: boolean) {
+    if (!pollRef.value) return;
+    await updateDoc(pollRef.value, { isListed });
   }
 
   function bindToPoll(id: string) {
@@ -180,10 +217,12 @@ export const usePollStore = defineStore("poll", () => {
     deleteOption,
     updatePollName,
     updatePollVisibility,
+    updatePollListing,
     updateOptionText,
     updateOptionsOrder,
     startVoting,
     closePollWithCode,
+    deletePollWithCode,
     castVote,
   };
 });
