@@ -145,7 +145,3 @@ npm run dev
   * `npm run build`: Compiles the Vue application for production.
 
   * `npm run preview`: Serves the production build locally for testing.
-
-<!-- end list -->
-
-```
